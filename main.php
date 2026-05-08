@@ -466,14 +466,12 @@ add_action('template_redirect', function() {
         ));
 
         if ($coupon_id) {
-            // 2. อัปเดตใบที่เจอให้เป็นของ User คนนี้
-            // ใส่ user_id IS NULL ซ้ำในเงื่อนไขเพื่อกัน Race Condition (คนกดพร้อมกัน)
             $updated = $wpdb->update(
                 $table_name,
                 array('user_id' => $user_id),
                 array('id' => $coupon_id, 'user_id' => null),
                 array('%d'),
-                array('%d', '%d') // id เป็น %d (int), user_id เป็น %d (null)
+                array('%d', '%d')
             );
 
             if ($updated) {
@@ -485,7 +483,6 @@ add_action('template_redirect', function() {
             exit;
         }
 
-        // ถ้าไม่เจอคูปองว่าง หรืออัปเดตไม่สำเร็จ
         wp_redirect(home_url('/e-voucher/?status=out_of_stock'));
         exit;
     }
@@ -561,6 +558,13 @@ add_shortcode('evoucher_page', function() {
             cursor: pointer;
             transition: 0.3s;
         }
+        .coupon .btn-pick:disabled {
+            background: #ccc;
+        }
+        .coupon .btn-pick:disabled:hover {
+            background: #ccc;
+            cursor: not-allowed;
+        }
         .coupon .btn-pick:hover { background: #157fb1; }
 
         @media screen and (max-width: 1400px) { .coupon-container { grid-template-columns: 1fr 1fr 1fr; } }
@@ -629,7 +633,7 @@ function my_onsite_coupons_table() {
     global $wpdb;
     $coupon_table = $wpdb->prefix . 'onsite_coupon';
     $my_onsite_coupons = $wpdb->get_results($wpdb->prepare(
-        "SELECT code, coupon_condition, discount FROM $coupon_table WHERE user_id = %d", get_current_user_id()
+        "SELECT code, coupon_condition, discount FROM $coupon_table WHERE user_id = %d AND status = 0", get_current_user_id()
     ));
 ?>
 <style>
@@ -721,10 +725,16 @@ function my_onsite_coupons_table() {
                     <td style="display: flex;">
                         <?php
                         $real_coupon_id = $wpdb->get_var($wpdb->prepare(
-                            "SELECT ID FROM {$wpdb->posts} WHERE post_title = %s AND post_type = 'shop_coupon' AND post_status = 'publish' LIMIT 1",
+                            "SELECT ID FROM {$wpdb->posts} WHERE post_title = %s AND post_type = 'shop_coupon' LIMIT 1",
                             $my_onsite_coupon->code
                         ));
-                        if(!$real_coupon_id) {
+
+                        $coupon_amount = 0;
+                        if ($real_coupon_id) {
+                            $coupon_amount = (float) get_post_meta($real_coupon_id, 'coupon_amount', true);
+                        }
+
+                        if (!$real_coupon_id || $coupon_amount <= 0) {
                         ?>
                         <button class="button button-small" style="
                         padding: 5px 20px;
@@ -834,72 +844,142 @@ add_action('wp_loaded', function() {
 
 function createWoocommerceCouponFromOnsiteCoupon($coupon_code, $discount_amount, $minimum_amount, $user_id) {
     if ( ! class_exists( 'WC_Coupon' ) ) return;
-
     global $wpdb;
 
-    /**
-     * 1. ถอนรากถอนโคน: เช็คหา ID จากชื่อคูปองโดยตรงในฐานข้อมูล 
-     * (ไม่ใช้ฟังก์ชัน Woo เพราะบางทีมันติด Cache)
-     */
+    // 1. เช็คสถานะในตาราง On-site ก่อน
+    $onsite_status = $wpdb->get_var($wpdb->prepare(
+        "SELECT status FROM {$wpdb->prefix}onsite_coupon WHERE code = %s",
+        $coupon_code
+    ));
+    if ($onsite_status == 1) return;
+
+    // 2. หา ID ของคูปองที่มีอยู่เดิม (รวมทุกสถานะ ทั้ง publish และ draft)
     $existing_id = $wpdb->get_var($wpdb->prepare(
-        "SELECT ID FROM $wpdb->posts WHERE post_name = %s LIMIT 1",
-        sanitize_title($coupon_code)
+        "SELECT ID FROM $wpdb->posts WHERE post_title = %s AND post_type = 'shop_coupon' LIMIT 1",
+        $coupon_code
     ));
 
-    if ($existing_id) {
-        // ถ้าเจอ "ซาก" คูปองเก่า (ไม่ว่าจะสถานะไหน) ให้ลบทิ้งถาวรทันที
-        wp_delete_post($existing_id, true); 
-    }
-
-    /**
-     * 2. เคลียร์ Cache ของ WooCommerce 
-     * เพื่อให้ระบบลืมไปเลยว่าเคยมีคูปองชื่อนี้อยู่
-     */
-    wp_cache_delete('coupon-id-' . $coupon_code, 'coupons');
-    delete_transient('wc_coupon_id_from_code_' . $coupon_code);
-
-    /**
-     * 3. สร้างใหม่แบบสดๆ (Fresh Start)
-     */
     try {
-        $coupon = new WC_Coupon();
+        // หากมี ID เดิม ให้ดึง Object เดิมมาใช้ หากไม่มีให้สร้างใหม่ (new)
+        $coupon = $existing_id ? new WC_Coupon($existing_id) : new WC_Coupon();
+        
         $coupon->set_code($coupon_code);
+        $coupon->set_status('publish'); // บังคับให้เป็น Publish เสมอ
         $coupon->set_discount_type('fixed_cart');
         $coupon->set_amount((float)$discount_amount);
+        
+        // ล้างประวัติการใช้งาน (เพื่อป้องกันบั๊กใช้ซ้ำไม่ได้)
+        $coupon->set_usage_count(0);
+        $coupon->set_used_by(array());
         
         $min = (float)$minimum_amount > 0 ? (float)$minimum_amount : 0;
         $coupon->set_minimum_amount($min);
         
         $coupon->set_usage_limit(1);
-        $coupon->set_individual_use(true);
-        $coupon->set_description("สร้างจากคูปอง On-site โดย User ID: $user_id");
-        
-        // ตั้งวันหมดอายุ
+        $coupon->set_usage_limit_per_user(1);
+        $coupon->set_individual_use(false);
+        $coupon->set_description("On-site Update: User ID $user_id");
         $coupon->set_date_expires(date('Y-m-d', strtotime('+7 days')));
         
         $coupon->save();
+
+        delete_transient('wc_coupon_id_from_code_' . $coupon_code);
+        wp_cache_delete('coupon-id-' . $coupon_code, 'coupons');
+        $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}wc_order_coupon_lookup WHERE coupon_code = %s", $coupon_code));
+
+        if ( WC()->cart ) {
+            // ลบคูปองแบบระบุชื่อ
+            WC()->cart->remove_coupon( $coupon_code );
+            
+            // บังคับให้โหลดข้อมูลจาก Session ใหม่ (หัวใจสำคัญ)
+            WC()->cart->get_cart_from_session();
+            
+            // สั่งคำนวณใหม่
+            WC()->cart->calculate_totals();
+            
+            // บังคับ Save Session ทันที
+            WC()->cart->set_session();
+            
+            // ป้องกัน Cache ระดับ Object
+            wc_delete_shop_order_transients();
+        }
+
     } catch (Exception $e) {
-        // ถ้าผิดพลาดให้บันทึกลง Error Log ของ Server
-        error_log("Error creating coupon: " . $e->getMessage());
+        error_log("Error in Smart Coupon Sync: " . $e->getMessage());
     }
 }
 
 function createOnsiteCouponFromWoocommerceCoupon($coupon_code) {
     global $wpdb;
-    // หา ID คูปองใน Woo
+
+    // 1. หา ID คูปอง
     $coupon_id = $wpdb->get_var($wpdb->prepare(
         "SELECT ID FROM $wpdb->posts WHERE post_title = %s AND post_type = 'shop_coupon' LIMIT 1",
         $coupon_code
     ));
 
-    delete_transient( 'wc_coupon_id_from_code_' . $coupon_code );
-    wp_cache_delete( 'coupon-id-' . $coupon_code, 'coupons' );
-
     if ($coupon_id) {
-        // ลบด้วย SQL ตรงๆ ชัวร์ 100%
-        $wpdb->query($wpdb->prepare("DELETE FROM $wpdb->posts WHERE ID = %d", $coupon_id));
-        $wpdb->query($wpdb->prepare("DELETE FROM $wpdb->postmeta WHERE post_id = %d", $coupon_id));
+        update_post_meta($coupon_id, 'coupon_amount', 0);
+        update_post_meta($coupon_id, 'usage_limit', -1);
+        
+        $wpdb->update(
+            $wpdb->posts,
+            array('post_status' => 'draft'), 
+            array('ID' => $coupon_id)
+        );
+
+        delete_transient( 'wc_coupon_id_from_code_' . $coupon_code );
+        wp_cache_delete( 'coupon-id-' . $coupon_code, 'coupons' );
+        
+        if ( class_exists( 'WC_Cache_Helper' ) ) {
+            WC_Cache_Helper::get_transient_version( 'coupons', true );
+        }
+
+        if ( WC()->cart ) {
+            // ลบคูปองแบบระบุชื่อ
+            WC()->cart->remove_coupon( $coupon_code );
+            
+            // บังคับให้โหลดข้อมูลจาก Session ใหม่ (หัวใจสำคัญ)
+            WC()->cart->get_cart_from_session();
+            
+            // สั่งคำนวณใหม่
+            WC()->cart->calculate_totals();
+            
+            // บังคับ Save Session ทันที
+            WC()->cart->set_session();
+            
+            // ป้องกัน Cache ระดับ Object
+            wc_delete_shop_order_transients();
+        }
+
         return true;
     }
     return false;
 }
+
+add_action('woocommerce_thankyou', 'mark_onsite_coupon_as_used', 10, 1);
+
+function mark_onsite_coupon_as_used($order_id) {
+    if (!$order_id) return;
+
+    $order = wc_get_order($order_id);
+    $applied_coupons = $order->get_coupon_codes();
+
+    if (!empty($applied_coupons)) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'onsite_coupon';
+
+        foreach ($applied_coupons as $code) {
+            $wpdb->update(
+                $table_name,
+                array(
+                    'status'     => 1,
+                    'billing_id' => $order_id // ใส่ order_id ลงในฟิลด์ billing_id
+                ),
+                array('code' => $code),
+                array('%d', '%d'), // %d สำหรับ status (int) และ billing_id (int)
+                array('%s')        // %s สำหรับ code (string)
+            );
+        }
+    }
+} 
