@@ -222,7 +222,7 @@ function onsite_coupon_tracker_page() {
     </div>
     <div class="wrapper" style="display: flex;">
         <div class="campaigns_list no-print">
-            <h2>📚 รายการแคมเปญ <button class="button button-small" onclick="window.location.href='admin.php?page=onsite_coupon_tracker&option=newCampaign'" style="margin-left: 10px;">สร้างแคมเปญใหม่</button></h2>
+            <h2>📚 รายการแคมเปญ <button class="button button-primary button-small" onclick="window.location.href='admin.php?page=onsite_coupon_tracker&option=newCampaign'" style="margin-left: 10px;">สร้างแคมเปญใหม่</button></h2>
             
             <?php
             $campaigns = $wpdb->get_results(
@@ -331,7 +331,7 @@ function onsite_coupon_tracker_page() {
                         <p style="margin: 0; font-size: 16px;">
                             📊 <strong>ภาพรวมแคมเปญ:</strong> <br>
                             ทั้งหมด: <strong><?= number_format($all_coupon); ?></strong> คูปอง | 
-                            ใช้งานแล้ว: <span style="color: #28a745;"><?= number_format($used_coupon); ?></span> | 
+                            ใช้งานแล้ว:  <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=used");?>' style="text-decoration: none;"><span style="color: #28a745;"><?= number_format($used_coupon); ?></span></a> | 
                             เหลือพร้อมใช้: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=available");?>' style="text-decoration: none;"><span style="color: #007bff;"><?= number_format($available_coupon); ?></span></a> | 
                             ถูกเก็บแล้ว: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=picked");?>' style="text-decoration: none;"><span style="color: red;"><?= number_format($already_taken_coupon); ?></span></a>
                         </p>
@@ -466,6 +466,56 @@ function onsite_coupon_tracker_page() {
                 </table>
             </div>
             <?php
+            } elseif(isset($_GET['searchCoupon']) && isset($_GET['campaign']) && $_GET['searchCoupon'] == "used") {
+                $campaign_id = $_GET['campaign'];
+
+                $coupons = $wpdb->get_results($wpdb->prepare(
+                    "SELECT c.discount, c.coupon_condition, c.code 
+                    FROM {$wpdb->prefix}onsite_coupon c
+                    LEFT JOIN {$wpdb->prefix}posts p ON c.code = p.post_title AND p.post_type = 'shop_coupon'
+                    WHERE c.user_id IS NULL 
+                    AND p.ID IS NOT NULL AND campaign_id = %d  
+                    GROUP BY c.discount, c.coupon_condition 
+                    ORDER BY c.discount ASC"
+                , $campaign_id));
+            ?>
+            <h1 style="margin-top: 0;">🎉 คูปองที่ถูกใช้แล้ว</h1>
+            <div style="padding: 0px 25px 25px 25px;">
+                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Code</th>
+                            <th>ลดจำนวน</th>
+                            <th>เงื่อนไข</th>
+                            <th>สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                            foreach($coupons as $coupon) {
+                        ?>
+                        <tr>
+                            <td><?=$coupon->id;?></td>
+                            <td><a href="admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>"><?=$coupon->code;?></a></td>
+                            <td><?=$coupon->discount;?></td>
+                            <td><?=$coupon->coupon_condition;?></td>
+                            <td>
+                                <span style='color: red;'>ถูกเก็บแล้ว โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a></span>
+                                | <?php if($coupon->status == 0) {
+                                echo "<span style='color: green;'>ยังไม่ถูกใช้งาน</span>"; 
+                                } else { 
+                                echo "<span style='color: red;'>ใช้งานแล้ว</span>"; 
+                                } ?></td>
+                        </tr>
+                        <?php
+                            }
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php
             } elseif(isset($_GET['searchCoupon']) && isset($_GET['campaign']) && $_GET['searchCoupon'] == "available") {
                 $campaign_id = $_GET['campaign'];
 
@@ -474,6 +524,9 @@ function onsite_coupon_tracker_page() {
                 , $campaign_id));
             ?>
             <h1 style="margin-top: 0;">✅ คูปองที่ยังว่าง</h1>
+            <?php
+            if(isset($_GET['searchCoupon']) && isset($_GET['campaign'])) {
+            ?>
             <div style="padding: 0px 25px 25px 25px;">
                 <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
                 <table class="wp-list-table widefat fixed striped">
@@ -501,6 +554,9 @@ function onsite_coupon_tracker_page() {
                     </tbody>
                 </table>
             </div>
+            <?php
+            }
+            ?>
             <?php
             } elseif(isset($_GET['option']) && $_GET['option'] == "coupon-by-condition") {
                 $campaign_id = $_GET['campaign_id'];
@@ -579,6 +635,8 @@ function onsite_coupon_tracker_page() {
                     </select><br><br>
                     เลขบิล: <input type="text" name="billing_id" value="<?=$coupon->billing_id;?>" style="width: 400px;"><br><br>
                     <input type="submit" value="บันทึกการเปลี่ยนแปลง" name="editCoupon" class="button">
+                    <br><br>
+                    <a href="admin.php?page=onsite_coupon_tracker&deleteCoupon=<?=$coupon->id;?>&campaign=<?=$coupon->campaign_id;?>">ลบคูปองนี้</a>
                 </form>
             </div>
             <?php
@@ -637,6 +695,15 @@ function onsite_coupon_tracker_page() {
                         </tbody>
                     </table>
                 </div>
+            <?php
+            } elseif(isset($_GET['deleteCoupon']) && !empty($_GET['deleteCoupon']) && isset($_GET['campaign_id']) && !empty($_GET['campaign_id'])) {
+                $coupon_id = sanitize_text_field($_GET['deleteCoupon']);
+                $campaign_id = sanitize_text_field($_GET['campaign_id']);
+                $coupon_table = $wpdb->prefix . "onsite_coupon"; 
+                $wpdb->query($wpdb->prepare("DELETE FROM $coupon_table WHERE id = %d AND campaign_id = %d", $coupon_id, $campaign_id));
+                wp_redirect("admin.php?page=onsite_coupon_tracker&campaign=".$campaign_id."&searchCoupon=all");
+                exit;
+            ?>
             <?php
             } elseif(isset($_GET['option']) && $_GET['option'] == "settings") {
             ?>
