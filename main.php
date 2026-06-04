@@ -1061,8 +1061,6 @@ function my_onsite_coupons_table() {
         border-radius: 5px;
     }
 </style>
-
-<!-- Popup สำหรับโชว์โค้ด -->
 <div id="couponBox">
     <div style="background: #fff; border-radius: 20px; padding: 40px; width: 80%;">
         <!-- <img src="" class="couponArtWork" alt="Onsite Coupon Art Work"> -->
@@ -1080,7 +1078,6 @@ function my_onsite_coupons_table() {
         <button class="button" class="close-coupon-btn" onclick="hideCoupon()">ปิดหน้าจอนี้</button>
     </div>
 </div>
-
 <div class="accordion" id="onsiteCoupon">
   <div class="card">
     <div class="card-header"><button class="btn btn-link" data-toggle="collapse" data-target="#onsiteCouponAccordion" aria-expanded="true" aria-controls="onsiteCouponAccordion">🎫 คูปองส่วนลดพิเศษสำหรับใช้งานหน้าร้าน</button></div>
@@ -1114,7 +1111,6 @@ function my_onsite_coupons_table() {
             </thead>
             <tbody>
                 <?php
-                    // แก้จุดที่ 1: ใช้ count() เช็ค array
                     if(count($my_onsite_coupons) === 0) { 
                         echo "<tr><td colspan='3'>ไม่มีคูปองสำหรับหน้าร้าน...</td></tr>"; 
                     } else {
@@ -1175,7 +1171,6 @@ function my_onsite_coupons_table() {
     </div>
   </div>
 </div>
-
 <script>
     function showCoupon(code, discount, coupon_condition) {
         document.getElementById('couponBox').style.display = "flex";
