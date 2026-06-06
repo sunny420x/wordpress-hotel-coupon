@@ -320,7 +320,7 @@ function onsite_coupon_tracker_page() {
                             COUNT(*) as total,
                             SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as used,
                             SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) as available,
-                            SUM(CASE WHEN user_id IS NOT NULL AND user_id != 0 THEN 1 ELSE 0 END) as taken
+                            SUM(CASE WHEN user_id IS NOT NULL AND user_id != 0 OR status = 1 THEN 1 ELSE 0 END) as taken
                         FROM {$wpdb->prefix}onsite_coupon WHERE campaign_id = %d
                     ", $campaign_id), OBJECT);
 
@@ -334,9 +334,9 @@ function onsite_coupon_tracker_page() {
                         <p style="margin: 0; font-size: 16px;">
                             📊 <strong>ภาพรวมแคมเปญ:</strong> <br>
                             ทั้งหมด: <strong><?= number_format($all_coupon); ?></strong> คูปอง | 
-                            ใช้งานแล้ว:  <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=used");?>' style="text-decoration: none;"><span style="color: #28a745;"><?= number_format($used_coupon); ?></span></a> | 
                             เหลือพร้อมใช้: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=available");?>' style="text-decoration: none;"><span style="color: #007bff;"><?= number_format($available_coupon); ?></span></a> | 
-                            ถูกเก็บแล้ว: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=picked");?>' style="text-decoration: none;"><span style="color: red;"><?= number_format($already_taken_coupon); ?></span></a>
+                            ถูกเก็บแล้ว: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=picked");?>' style="text-decoration: none;"><span style="color: red;"><?= number_format($already_taken_coupon); ?></span></a> | 
+                            ใช้งานแล้ว:  <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=used");?>' style="text-decoration: none;"><span style="color: #28a745;"><?= number_format($used_coupon); ?></span></a> 
                         </p>
                     </div>
                     <table class="wp-list-table widefat fixed striped">
@@ -378,7 +378,9 @@ function onsite_coupon_tracker_page() {
                     </script>
                 </div>
             <?php
-            } elseif(isset($_GET['searchCoupon']) && isset($_GET['campaign']) && $_GET['searchCoupon'] != "all" && $_GET['searchCoupon'] != "picked" && $_GET['searchCoupon'] != 'available') {
+            } elseif(isset($_GET['searchCoupon']) && isset($_GET['campaign']) 
+            && $_GET['searchCoupon'] != "all" && $_GET['searchCoupon'] != "picked" 
+            && $_GET['searchCoupon'] != 'available' && $_GET['searchCoupon'] != 'used') {
                 $campaign_id = $_GET['campaign'];
 
                 $coupons = $wpdb->get_results($wpdb->prepare(
@@ -410,7 +412,15 @@ function onsite_coupon_tracker_page() {
                             <td><?=$coupon->coupon_condition;?></td>
                             <td><?php if($coupon->user_id == null) { echo "<span style='color: green;'>ยังไม่ถูกเก็บ</span>"; } else {
                             ?>
-                                <span style='color: red;'>ถูกเก็บแล้ว โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a></span>
+                                <span style='color: red;'>ถูกเก็บแล้ว 
+                                <?php
+                                if($coupon->user_id != 0) {
+                                ?>
+                                โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a>
+                                <?php
+                                }
+                                ?>
+                                </span>
                             <?php
                             } ?> | <?php if($coupon->status == 0) {
                                 echo "<span style='color: green;'>ยังไม่ถูกใช้งาน</span>"; 
@@ -429,7 +439,7 @@ function onsite_coupon_tracker_page() {
                 $campaign_id = $_GET['campaign'];
 
                 $coupons = $wpdb->get_results($wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}onsite_coupon WHERE campaign_id = %d AND user_id IS NOT NULL ORDER BY discount_amount ASC"
+                    "SELECT * FROM {$wpdb->prefix}onsite_coupon WHERE campaign_id = %d AND user_id IS NOT NULL OR status = 1 ORDER BY discount_amount ASC"
                 , $campaign_id));
             ?>
             <h1 style="margin-top: 0;">🎉 คูปองที่ถูกเก็บแล้ว</h1>
@@ -455,7 +465,15 @@ function onsite_coupon_tracker_page() {
                             <td><?=$coupon->discount;?></td>
                             <td><?=$coupon->coupon_condition;?></td>
                             <td>
-                                <span style='color: red;'>ถูกเก็บแล้ว โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a></span>
+                                <span style='color: red;'>ถูกเก็บแล้ว 
+                                <?php
+                                if($coupon->user_id != 0) {
+                                ?>  
+                                โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a>
+                                <?php
+                                }
+                                ?>
+                                </span>
                                 | <?php if($coupon->status == 0) {
                                 echo "<span style='color: green;'>ยังไม่ถูกใช้งาน</span>"; 
                                 } else { 
@@ -473,12 +491,14 @@ function onsite_coupon_tracker_page() {
                 $campaign_id = $_GET['campaign'];
 
                 $coupons = $wpdb->get_results($wpdb->prepare(
-                    "SELECT c.discount, c.coupon_condition, c.code 
-                    FROM {$wpdb->prefix}onsite_coupon c
-                    LEFT JOIN {$wpdb->prefix}posts p ON c.code = p.post_title AND p.post_type = 'shop_coupon'
-                    WHERE c.user_id IS NULL 
-                    AND p.ID IS NOT NULL AND campaign_id = %d  
-                    GROUP BY c.discount, c.coupon_condition 
+                    "SELECT c.id, c.discount, c.coupon_condition, c.code 
+                    FROM wp9h_onsite_coupon c
+
+                    WHERE c.campaign_id = %d 
+                    AND c.billing_id IS NOT NULL 
+                    OR c.status = 1
+
+                    GROUP BY c.discount, c.coupon_condition, c.code
                     ORDER BY c.discount ASC"
                 , $campaign_id));
             ?>
@@ -505,7 +525,15 @@ function onsite_coupon_tracker_page() {
                             <td><?=$coupon->discount;?></td>
                             <td><?=$coupon->coupon_condition;?></td>
                             <td>
-                                <span style='color: red;'>ถูกเก็บแล้ว โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a></span>
+                                <span style='color: red;'>ถูกเก็บแล้ว
+                                <?php
+                                if($coupon->user_id != 0) {
+                                ?>
+                                    โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a>
+                                <?php
+                                }
+                                ?>
+                                </span>
                                 | <?php if($coupon->status == 0) {
                                 echo "<span style='color: green;'>ยังไม่ถูกใช้งาน</span>"; 
                                 } else { 
@@ -594,7 +622,15 @@ function onsite_coupon_tracker_page() {
                             <td><?=$coupon->discount;?></td>
                             <td><?=$coupon->coupon_condition;?></td>
                             <td><?php if($coupon->user_id == null) { echo "<span style='color: green;'>ยังไม่ถูกเก็บ</span>"; } else {                             ?>
-                                <span style='color: red;'>ถูกเก็บแล้ว โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a></span>
+                                <span style='color: red;'>ถูกเก็บแล้ว 
+                                <?php
+                                if($coupon->user_id) {
+                                ?>
+                                โดย: <a href="/wp-admin/user-edit.php?user_id=<?=$coupon->user_id?>&wp_http_referer=%2Fwp-admin%2Fusers.php" target="_blank"><?=$coupon->user_id?></a>
+                                <?php
+                                }
+                                ?>
+                                </span>
                             <?php } ?> | <?php if($coupon->status == 0) {echo "<span style='color: green;'>ยังไม่ถูกใช้งาน</span>"; } else { echo "<span style='color: red;'>ใช้งานแล้ว</span>"; } ?></td>
                         </tr>
                         <?php
@@ -646,11 +682,11 @@ function onsite_coupon_tracker_page() {
             } elseif(isset($_GET['option']) && $_GET['option'] == "report" && $_GET['campaign_id']) {
                 $campaign_id = $_GET['campaign_id'];
 
-                $report = $wpdb->get_results($wpdb->prepare("
-                    SELECT
+                $report = $wpdb->get_results($wpdb->prepare(
+                    "SELECT
                         onsite.code, 
                         onsite.billing_id,
-                        onsite.discount_amount,
+                        onsite.discount,
                         onsite.coupon_condition,
                         users.display_name,
                         posts.post_date AS order_at,
@@ -686,8 +722,8 @@ function onsite_coupon_tracker_page() {
                                 <tr>
                                     <td><a href="https://www.worldchemical.co.th/wp-admin/post.php?post=<?=$row->billing_id;?>&action=edit"><strong><?=$row->billing_id;?></strong></a></td>
                                     <td><?=esc_html($row->display_name ?: '-- ไม่พบชื่อ --');?></td>
-                                    <td><?=wc_price($row->totals);?></td>
-                                    <td style="color: red;">-<?=wc_price($row->discount_amount);?> (<?=$row->code?>)</td>
+                                    <td><?=wc_price($row->totals)?></td>
+                                    <td style="color: red;">-<?=wc_price($row->discount);?> (<?=$row->code?>)</td>
                                     <td><?=$row->coupon_condition;?></td>
                                     <td><?php if(date('d/m/Y H:i', strtotime($row->order_at)) != null) { echo $row->order_at; } else { echo "-"; }?></td>
                                 </tr>
