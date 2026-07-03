@@ -239,7 +239,7 @@ function onsite_coupon_tracker_page() {
             );
             foreach($campaigns as $campaign) {
             ?>
-                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=".$campaign->id)?>" class="<?php if($campaign->id == $_GET['campaign']) { echo 'active'; } ?>"><?=$campaign->name?></a>
+                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=".$campaign->id)?>" class="<?php if($campaign->id == $_GET['campaign'] || $campaign->id == $_GET['campaign_id']) { echo 'active'; } ?>"><?=$campaign->name?></a>
             <?php
             }
             ?>
