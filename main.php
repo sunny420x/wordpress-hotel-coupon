@@ -1027,7 +1027,7 @@ add_shortcode('evoucher_page', function() {
                         LEFT JOIN {$wpdb->prefix}posts p ON c.code = p.post_title AND p.post_type = 'shop_coupon'
                         WHERE c.status = 0 AND campaign_id = %d
                         GROUP BY c.discount, c.coupon_condition 
-                        ORDER BY c.discount ASC", $campaign->id
+                        ORDER BY c.discount_amount ASC", $campaign->id
                     );
 
                     $coupons = $wpdb->get_results($sql);
