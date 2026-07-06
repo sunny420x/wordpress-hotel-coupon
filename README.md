@@ -1,4 +1,4 @@
-<img width="1919" height="764" alt="image" src="https://github.com/user-attachments/assets/72a7f539-12a4-4551-9c6c-1801874c27da" />
+<img width="1564" height="862" alt="image" src="https://github.com/user-attachments/assets/1b12fe14-1ee2-4ad8-ab34-170a8ec48bb4" />
 
 ## ระบบสร้างและติดตามการใช้งานคูปองหน้าร้าน ##
 เคยอยากสร้างคูปองส่งเสริมการขายหน้าร้านแล้วไม่มีระบบไหม ? ปลั้กอินนี้ช่วยคุณได้
