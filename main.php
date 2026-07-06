@@ -1,26 +1,26 @@
 <?php
 /**
- * Plugin Name: WordPress Onsite Coupon Tracker
- * Description: ระบบสร้างและติดตามการใช้งานคูปอง Onsite
+ * Plugin Name: WordPress Hotel Coupon Manager
+ * Description: ระบบสร้างและติดตามการใช้งานคูปองของโรงแรม
  * Author: Jirakit Pawnsakunrungrot
  * Author URI: https://www.linkedin.com/in/sunny-jirakit
- * Plugin URI: https://github.com/sunny420x/wordpress-onsite-coupon-tracker
+ * Plugin URI: https://github.com/sunny420x/wordpress-hotel-coupon
  */
 
-function onsite_coupon_tracker_menu()
+function hotel_coupon_tracker_menu()
 {
     add_menu_page(
-        'ระบบสร้างและติดตามการใช้งานคูปอง Onsite',    // Page title
-        'คูปอง E-Voucher',                          // Menu title
+        'ระบบสร้างและติดตามการใช้งานคูปองสำหรับห้องพัก',    // Page title
+        'คูปองสำหรับห้องพัก',                          // Menu title
         'edit_posts',                        // Capability required
-        'onsite_coupon_tracker',                             // Menu slug
-        'onsite_coupon_tracker_page',            // Callback function to display page content
-        'dashicons-buddicons-groups',                 // Icon URL or Dashicon class
+        'hotel_coupon_tracker',                             // Menu slug
+        'hotel_coupon_tracker_page',            // Callback function to display page content
+        'dashicons-building',                 // Icon URL or Dashicon class
         80                                       // Position in the menu (optional)
     );
 }
 
-add_action('admin_menu', 'onsite_coupon_tracker_menu');
+add_action('admin_menu', 'hotel_coupon_tracker_menu');
 
 function coupon_tracker_enqueue_assets()
 {
@@ -48,6 +48,7 @@ function onsite_couple_plugin_install() {
         code VARCHAR(6) NOT NULL,
         display_code VARCHAR(50) DEFAULT NULL,
         discount VARCHAR(20) NOT NULL,
+        coupon_condition VARCHAR(200) NOT NULL,
         status int(1) NOT NULL DEFAULT 0,
         user_id int(11),
         campaign_id int(11) NOT NULL,
@@ -64,6 +65,7 @@ function onsite_couple_plugin_install() {
         enable_fake_coupons_code INT(1) DEFAULT 0,
         start_date datetime NOT NULL,
         end_date datetime NOT NULL,
+        rooms TEXT,
         created_at datetime NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
@@ -73,7 +75,7 @@ function onsite_couple_plugin_install() {
     dbDelta( $create_campaign_query );
 }
 
-function onsite_coupon_tracker_page() {
+function hotel_coupon_tracker_page() {
     global $wpdb;
 
     if(isset($_POST['addCampaign'])) {
@@ -81,13 +83,14 @@ function onsite_coupon_tracker_page() {
         $campaign_start_date = sanitize_text_field($_POST['campaign_start_date']) ." ". sanitize_text_field($_POST['campaign_start_time']);
         $campaign_end_date = sanitize_text_field($_POST['campaign_end_date']) ." ". sanitize_text_field($_POST['campaign_end_time']);
         $enable_fake_coupons_code = sanitize_text_field($_POST['enable_fake_coupons_code']);
+        $rooms = sanitize_text_field($_POST['rooms']);
         $created_at = date("Y-m-d H:i:s");
 
-        $insert_query = $wpdb->prepare("INSERT INTO {$wpdb->prefix}onsite_campaign(name, start_date, end_date, enable_fake_coupons_code, created_at) 
-        VALUES(%s, %s, %s, %d, %s)", $campaign_name, $campaign_start_date, $campaign_end_date, $enable_fake_coupons_code, $created_at);
+        $insert_query = $wpdb->prepare("INSERT INTO {$wpdb->prefix}onsite_campaign(name, start_date, end_date, enable_fake_coupons_code, rooms, created_at) 
+        VALUES(%s, %s, %s, %d, %s, %s)", $campaign_name, $campaign_start_date, $campaign_end_date, $enable_fake_coupons_code, $rooms, $created_at);
         $wpdb->query($insert_query);
 
-        wp_redirect(admin_url('admin.php?page=onsite_coupon_tracker'));
+        wp_redirect(admin_url('admin.php?page=hotel_coupon_tracker'));
         exit;
     }
 
@@ -97,11 +100,12 @@ function onsite_coupon_tracker_page() {
         $campaign_start_date = sanitize_text_field($_POST['campaign_start_date']) ." ". sanitize_text_field($_POST['campaign_start_time']);
         $campaign_end_date = sanitize_text_field($_POST['campaign_end_date']) ." ". sanitize_text_field($_POST['campaign_end_time']);
         $enable_fake_coupons_code = sanitize_text_field($_POST['enable_fake_coupons_code']);
+        $rooms = sanitize_text_field($_POST['rooms']);
 
-        $update_query = $wpdb->prepare("UPDATE {$wpdb->prefix}onsite_campaign SET name = %s, start_date = %s, end_date = %s, enable_fake_coupons_code = %d WHERE id = %d", $campaign_name, $campaign_start_date, $campaign_end_date, $enable_fake_coupons_code, $campaign_id);
+        $update_query = $wpdb->prepare("UPDATE {$wpdb->prefix}onsite_campaign SET name = %s, start_date = %s, end_date = %s, enable_fake_coupons_code = %d, rooms = %s WHERE id = %d", $campaign_name, $campaign_start_date, $campaign_end_date, $enable_fake_coupons_code, $rooms, $campaign_id);
         $wpdb->query($update_query);
 
-        wp_redirect(admin_url('admin.php?page=onsite_coupon_tracker&campaign='.$campaign_id));
+        wp_redirect(admin_url('admin.php?page=hotel_coupon_tracker&campaign='.$campaign_id));
         exit;
     }
 
@@ -122,7 +126,7 @@ function onsite_coupon_tracker_page() {
             $wpdb->query($insert_query);
         }
 
-        wp_redirect(admin_url('admin.php?page=onsite_coupon_tracker&campaign='.$campaign_id));
+        wp_redirect(admin_url('admin.php?page=hotel_coupon_tracker&campaign='.$campaign_id));
         exit;
     }
 
@@ -143,7 +147,7 @@ function onsite_coupon_tracker_page() {
             $coupon_code, $coupon_condition, $coupon_discount, $campaign_id, $coupon_status, $discount_amount, $minspend, $display_code, $billing_id, $coupon_id);
         $wpdb->query($update_query);
 
-        wp_redirect(admin_url('admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon='.$coupon_id));
+        wp_redirect(admin_url('admin.php?page=hotel_coupon_tracker&option=edit-coupon&coupon='.$coupon_id));
         exit;
     }
     ?>
@@ -220,18 +224,18 @@ function onsite_coupon_tracker_page() {
         }
     </style>
     <div class="white-label-zone no-print">
-        <span style="padding: 60px 10px 60px 40px;float: left;font-size: 60px;">🏷️</span>
+        <span style="padding: 60px 10px 60px 40px;float: left;font-size: 60px;">🏨</span>
         <div style="padding: 20px 0;">
-            <h1>WordPress Onsite Coupon Manager</h1>
+            <h1>WordPress Hotel Coupon Manager</h1>
             <p>ระบบสร้างแคมเปญพิเศษ จัดการคูปองหน้าร้านสำหรับแคมเปญ
             <br>
-            <strong>Github Repository:</strong> <a href="https://github.com/sunny420x/wordpress-onsite-coupon-tracker" target="_blank">https://github.com/sunny420x/wordpress-onsite-coupon-tracker</a>
+            <strong>Github Repository:</strong> <a href="https://github.com/sunny420x/wordpress-hotel-coupon" target="_blank">https://github.com/sunny420x/wordpress-hotel-coupon</a>
             </p>
         </div>
     </div>
     <div class="wrapper" style="display: flex;">
         <div class="campaigns_list no-print">
-            <h2>📚 รายการแคมเปญ <button class="button button-primary button-small" onclick="window.location.href='admin.php?page=onsite_coupon_tracker&option=newCampaign'" style="margin-left: 10px;">สร้างแคมเปญใหม่</button></h2>
+            <h2>📚 รายการแคมเปญ <button class="button button-primary button-small" onclick="window.location.href='admin.php?page=hotel_coupon_tracker&option=newCampaign'" style="margin-left: 10px;">สร้างแคมเปญใหม่</button></h2>
             
             <?php
             $campaigns = $wpdb->get_results(
@@ -239,15 +243,15 @@ function onsite_coupon_tracker_page() {
             );
             foreach($campaigns as $campaign) {
             ?>
-                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=".$campaign->id)?>" class="<?php if($campaign->id == $_GET['campaign'] || $campaign->id == $_GET['campaign_id']) { echo 'active'; } ?>"><?=$campaign->name?></a>
+                <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=".$campaign->id)?>" class="<?php if($campaign->id == $_GET['campaign'] || $campaign->id == $_GET['campaign_id']) { echo 'active'; } ?>"><?=$campaign->name?></a>
             <?php
             }
             ?>
             <br>
             <br>
             <h2>⚙️ ตั้งค่า</h2>
-            <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker")?>">📖 คู่มือการใช้งานระบบ</a>
-            <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&option=settings")?>">🛠️ ตั้งค่าระบบ</a>
+            <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker")?>">📖 คู่มือการใช้งานระบบ</a>
+            <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&option=settings")?>">🛠️ ตั้งค่าระบบ</a>
         </div>
         <div class="container">
             <?php
@@ -260,13 +264,13 @@ function onsite_coupon_tracker_page() {
             <h1>✏️ แก้ไขแคมเปญ "<?=$campaign->name;?>"</h1>
             <div style="display: flex;">
                 <div style="padding: 0 10px 20px 20px;">
-                    <a href="admin.php?page=onsite_coupon_tracker&campaign=<?=$campaign->id;?>&searchCoupon=all" class="button menu-btn">🏷️ คูปองทั้งหมด</a><br><br>
-                    <a href="admin.php?page=onsite_coupon_tracker&newCoupon" class="button menu-btn">➕ สร้างคูปองใหม่</a><br><br>
-                    <a href="admin.php?page=onsite_coupon_tracker&option=report&campaign_id=<?=$campaign->id;?>" class="button menu-btn">🖨️ ออกรายงานแคมเปญ</a>
+                    <a href="admin.php?page=hotel_coupon_tracker&campaign=<?=$campaign->id;?>&searchCoupon=all" class="button menu-btn">🏷️ คูปองทั้งหมด</a><br><br>
+                    <a href="admin.php?page=hotel_coupon_tracker&newCoupon" class="button menu-btn">➕ สร้างคูปองใหม่</a><br><br>
+                    <a href="admin.php?page=hotel_coupon_tracker&option=report&campaign_id=<?=$campaign->id;?>" class="button menu-btn">🖨️ ออกรายงานแคมเปญ</a>
                 </div>
                 <div style="width: 100%; margin: 0 0 0 10px;">
                     <div style="padding: 0px 25px 25px 25px;">
-                        <form action="admin.php?page=onsite_coupon_tracker" method="POST">
+                        <form action="admin.php?page=hotel_coupon_tracker" method="POST">
                             <input type="hidden" name="campaign_id" value="<?=$campaign->id;?>">
                             ชื่อแคมเปญ: <input type="text" name="campaign_name" value="<?=$campaign->name;?>" style="width: 500px;"><br><br>
                             วันที่เริ่มแจกคูปอง: <input type="date" name="campaign_start_date" id="" value="<?=explode(" ", $campaign->start_date)[0];?>">
@@ -280,6 +284,74 @@ function onsite_coupon_tracker_page() {
                                 <option value="1" <?php echo ($campaign->enable_fake_coupons_code == 1) ? 'selected' : ''; ?>>ใช้งาน</option>
                             </select>
                             <br><br>
+                            ห้องพักที่เข้าร่วมแคมเปญ: <input type="text" name="rooms" id="" style="width: 100%;" value="<?=$campaign->rooms?>">
+                            <div style="height: 400px; overflow: auto;">
+                                <?php
+                                $args = array(
+                                    'status'  => 'publish',
+                                    'limit'   => -1, // -1 pulls all items
+                                    'orderby' => 'name',
+                                    'order'   => 'ASC',
+                                );
+                                $all_products = wc_get_products($args);
+                                $rooms = explode(",", $campaign->rooms);
+                                foreach ($all_products as $product) {
+                                    if ($product->get_type() == 'variable') {
+                                        $variations = $product->get_available_variations();
+                                        
+                                        foreach ($variations as $variation) {
+                                            $variation_id = $variation['variation_id'];
+                                            $is_checked = false;
+
+                                            if (!empty($rooms) && in_array($variation_id, $rooms)) {
+                                                $is_checked = true;
+                                            }
+                
+                                            $attribute_labels = [];
+                                            foreach ($variation['attributes'] as $key => $value) {
+                                                $attr_name = str_replace('attribute_', '', $key);
+                                                $attr_name = wc_attribute_label($attr_name); 
+                                                $attribute_labels[] = $attr_name . ': ' . ucfirst($value);
+                                            }
+                                            $attributes_text = implode(', ', $attribute_labels);
+                                            ?>
+                                            <p>
+                                                <input 
+                                                    type="checkbox" 
+                                                    name="room[<?php echo esc_attr($variation_id); ?>]" 
+                                                    value="<?php echo esc_attr($variation_id); ?>" 
+                                                    <?php checked($is_checked, true); ?> 
+                                                    onchange="initProduct();"
+                                                />
+                                                <?php echo esc_html($product->get_title()) . ' (' . esc_html(urldecode($attributes_text)) . ')'; ?>
+                                            </p>
+                                            <?php
+                                        }
+                                    } else {
+                                        $is_checked = false;
+                                        if (!empty($rooms) && in_array($product->get_id(), $rooms)) {
+                                            $is_checked = true;
+                                        }
+                                    ?>
+                                        <p><input type="checkbox" name="room[<?=$product->get_id()?>]" value="<?=$product->get_id()?>" <?php if($is_checked) { echo "checked"; } ?> onchange="initProduct();" /><?php echo esc_html($product->get_title()); ?></p>
+                                    <?php
+                                    }
+                                    ?>
+                                <?php
+                                }
+                                ?>
+                            </div>
+                            <script>
+                                function initProduct() {
+                                    const checkedBoxes = document.querySelectorAll('input[type="checkbox"]:checked');
+                                    let items = []
+                                    checkedBoxes.forEach(item => {
+                                        items.push(item.value)
+                                    })
+                                    document.getElementsByName('rooms')[0].value = items.join(",");
+                                }
+                            </script>
+                            <br><br>
                             <input type="submit" value="บันทึกการเปลี่ยนแปลง" name="editCampaign" class="button button-primary">
                         </form>
                     </div>
@@ -290,7 +362,7 @@ function onsite_coupon_tracker_page() {
             ?>
             <h1>➕ เพิ่มคูปองใหม่</h1>
             <div style="padding: 0px 25px 25px 25px;">
-                <form action="admin.php?page=onsite_coupon_tracker" method="post">
+                <form action="admin.php?page=hotel_coupon_tracker" method="post">
                     ลดจำนวน (Text): <input type="text" name="coupon_discount" id="" required><br><br>
                     เงื่อนไข: <input type="text" name="coupon_condition" id="" style="width: 500px;" required><br><br>
                     แคมเปญ: <select name="campaign_id" id="">
@@ -319,11 +391,11 @@ function onsite_coupon_tracker_page() {
             <h1 style="margin-top: 0;">🎫 คูปอง</h1>
                 <div style="padding: 0px 25px 25px 25px;">
                     <p>ในหน้านี้คุณสามารถค้นหาคูปองที่มีอยู่ในแคมเปญได้ โดยการกรอกรหัสคูปองลงในช่องค้นหาและกด Enter</p>
-                    <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=".$campaign_id);?>">กลับไปที่แคมเปญ</a><br><br>
+                    <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=".$campaign_id);?>">กลับไปที่แคมเปญ</a><br><br>
                     <input type="text" style="width: 100%;" onchange="searchCoupon(this.value, '<?=$campaign_id?>')" placeholder="ค้นหาคูปองด้วยรหัส" value="<?=$_GET['searchCoupon'];?>">
                     <script>
                         function searchCoupon(query, campaign_id) {
-                            window.location.href = `admin.php?page=onsite_coupon_tracker&searchCoupon=${query}&campaign=${campaign_id}`;
+                            window.location.href = `admin.php?page=hotel_coupon_tracker&searchCoupon=${query}&campaign=${campaign_id}`;
                         }
                     </script>
                     <?php
@@ -346,9 +418,9 @@ function onsite_coupon_tracker_page() {
                         <p style="margin: 0; font-size: 16px;">
                             📊 <strong>ภาพรวมแคมเปญ:</strong> <br>
                             ทั้งหมด: <strong><?= number_format($all_coupon); ?></strong> คูปอง | 
-                            เหลือพร้อมใช้: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=available");?>' style="text-decoration: none;"><span style="color: #007bff;"><?= number_format($available_coupon); ?></span></a> | 
-                            ถูกเก็บแล้ว: <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=picked");?>' style="text-decoration: none;"><span style="color: red;"><?= number_format($already_taken_coupon); ?></span></a> | 
-                            ใช้งานแล้ว:  <a href='<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=used");?>' style="text-decoration: none;"><span style="color: #28a745;"><?= number_format($used_coupon); ?></span></a> 
+                            เหลือพร้อมใช้: <a href='<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=available");?>' style="text-decoration: none;"><span style="color: #007bff;"><?= number_format($available_coupon); ?></span></a> | 
+                            ถูกเก็บแล้ว: <a href='<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=picked");?>' style="text-decoration: none;"><span style="color: red;"><?= number_format($already_taken_coupon); ?></span></a> | 
+                            ใช้งานแล้ว:  <a href='<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=used");?>' style="text-decoration: none;"><span style="color: #28a745;"><?= number_format($used_coupon); ?></span></a> 
                         </p>
                     </div>
                     <table class="wp-list-table widefat fixed striped">
@@ -385,7 +457,7 @@ function onsite_coupon_tracker_page() {
                     </table>
                     <script>
                         function searchCouponByCondition(campaign_id, condition, discount) {
-                            window.location.href=`admin.php?page=onsite_coupon_tracker&option=coupon-by-condition&condition=${condition}&discount=${discount}&campaign_id=${campaign_id}`
+                            window.location.href=`admin.php?page=hotel_coupon_tracker&option=coupon-by-condition&condition=${condition}&discount=${discount}&campaign_id=${campaign_id}`
                         }
                     </script>
                 </div>
@@ -407,7 +479,7 @@ function onsite_coupon_tracker_page() {
             ?>
             <h1 style="margin-top: 0;">🔍 ผลการค้นหา: <?=$_GET['searchCoupon'];?></h1>
             <div style="padding: 0px 25px 25px 25px;">
-                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
+                <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
@@ -424,7 +496,7 @@ function onsite_coupon_tracker_page() {
                         ?>
                         <tr>
                             <td><?=$coupon->id;?></td>
-                            <td><a href="admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
+                            <td><a href="admin.php?page=hotel_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
                                 <?php if($enable_fake_coupons_code == 1 && $coupon->display_code != null) { echo $coupon->display_code." (".$coupon->code.")"; } else { echo $coupon->code; } ?>
                             </a></td>
                             <td><?=$coupon->discount;?></td>
@@ -467,7 +539,7 @@ function onsite_coupon_tracker_page() {
             ?>
             <h1 style="margin-top: 0;">🎉 คูปองที่ถูกเก็บแล้ว</h1>
             <div style="padding: 0px 25px 25px 25px;">
-                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
+                <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
@@ -484,7 +556,7 @@ function onsite_coupon_tracker_page() {
                         ?>
                         <tr>
                             <td><?=$coupon->id;?></td>
-                            <td><a href="admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
+                            <td><a href="admin.php?page=hotel_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
                                 <?php if($enable_fake_coupons_code == 1 && $coupon->display_code != null) { echo $coupon->display_code." (".$coupon->code.")"; } else { echo $coupon->code; } ?>
                             </a></td>
                             <td><?=$coupon->discount;?></td>
@@ -532,7 +604,7 @@ function onsite_coupon_tracker_page() {
             ?>
             <h1 style="margin-top: 0;">🎉 คูปองที่ถูกใช้แล้ว</h1>
             <div style="padding: 0px 25px 25px 25px;">
-                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
+                <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
@@ -549,7 +621,7 @@ function onsite_coupon_tracker_page() {
                         ?>
                         <tr>
                             <td><?=$coupon->id;?></td>
-                            <td><a href="admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
+                            <td><a href="admin.php?page=hotel_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
                                 <?php if($enable_fake_coupons_code == 1 && $coupon->display_code != null) { echo $coupon->display_code." (".$coupon->code.")"; } else { echo $coupon->code; } ?>
                             </a></td>
                             <td><?=$coupon->discount;?></td>
@@ -593,7 +665,7 @@ function onsite_coupon_tracker_page() {
             if(isset($_GET['searchCoupon']) && isset($_GET['campaign'])) {
             ?>
             <div style="padding: 0px 25px 25px 25px;">
-                <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
+                <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=$campaign_id&searchCoupon=all");?>">กลับไปที่แคมเปญ</a><br><br>
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
@@ -609,7 +681,7 @@ function onsite_coupon_tracker_page() {
                         ?>
                         <tr>
                             <td><?=$coupon->id;?></td>
-                            <td><a href="admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
+                            <td><a href="admin.php?page=hotel_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
                                 <?php if($enable_fake_coupons_code == 1 && $coupon->display_code != null) { echo $coupon->display_code." (".$coupon->code.")"; } else { echo $coupon->code; } ?>
                             </a></td>
                             <td><?=$coupon->discount;?></td>
@@ -658,7 +730,7 @@ function onsite_coupon_tracker_page() {
                         ?>
                         <tr>
                             <td><?=$coupon->id;?></td>
-                            <td><a href="admin.php?page=onsite_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
+                            <td><a href="admin.php?page=hotel_coupon_tracker&option=edit-coupon&coupon=<?=$coupon->id;?>">
                                 <?php if($enable_fake_coupons_code == 1 && $coupon->display_code != null) { echo $coupon->display_code." (".$coupon->code.")"; } else { echo $coupon->code; } ?>
                             </a></td>
                             <td><?=$coupon->discount;?></td>
@@ -690,8 +762,8 @@ function onsite_coupon_tracker_page() {
             ?>
             <h1>✏️ แก้ไขคูปอง "<?=$coupon->code;?>"</h1>
             <div style="padding: 0px 25px 25px 25px;">
-                <form action="admin.php?page=onsite_coupon_tracker" method="post">
-                    <a href="<?=admin_url("admin.php?page=onsite_coupon_tracker&campaign=".$coupon->campaign_id."&searchCoupon=all");?>">กลับไปที่คูปองในแคมเปญ</a>
+                <form action="admin.php?page=hotel_coupon_tracker" method="post">
+                    <a href="<?=admin_url("admin.php?page=hotel_coupon_tracker&campaign=".$coupon->campaign_id."&searchCoupon=all");?>">กลับไปที่คูปองในแคมเปญ</a>
                     <br>
                     <br>
                     <input type="hidden" name="coupon_id" value="<?=$coupon->id;?>">
@@ -719,7 +791,7 @@ function onsite_coupon_tracker_page() {
                     เลขบิล: <input type="text" name="billing_id" value="<?=$coupon->billing_id;?>" style="width: 400px;"><br><br>
                     <input type="submit" value="บันทึกการเปลี่ยนแปลง" name="editCoupon" class="button">
                     <br><br>
-                    <a href="admin.php?page=onsite_coupon_tracker&deleteCoupon=<?=$coupon->id;?>&campaign=<?=$coupon->campaign_id;?>">ลบคูปองนี้</a>
+                    <a href="admin.php?page=hotel_coupon_tracker&deleteCoupon=<?=$coupon->id;?>&campaign=<?=$coupon->campaign_id;?>">ลบคูปองนี้</a>
                 </form>
             </div>
             <?php
@@ -784,7 +856,7 @@ function onsite_coupon_tracker_page() {
                 $campaign_id = sanitize_text_field($_GET['campaign_id']);
                 $coupon_table = $wpdb->prefix . "onsite_coupon"; 
                 $wpdb->query($wpdb->prepare("DELETE FROM $coupon_table WHERE id = %d AND campaign_id = %d", $coupon_id, $campaign_id));
-                wp_redirect("admin.php?page=onsite_coupon_tracker&campaign=".$campaign_id."&searchCoupon=all");
+                wp_redirect("admin.php?page=hotel_coupon_tracker&campaign=".$campaign_id."&searchCoupon=all");
                 exit;
             ?>
             <?php
@@ -794,12 +866,12 @@ function onsite_coupon_tracker_page() {
             <div style="padding: 0px 25px 25px 25px;">
                 <form action="options.php" method="post">
                     <?php
-                    settings_fields('onsite_coupon_tracker_settings_group');
+                    settings_fields('hotel_coupon_tracker_settings_group');
                     ?>
-                    <label for="onsite_coupon_tracker_enable">เปิดใช้งานระบบ Onsite Coupon: </label>
-                    <select name="onsite_coupon_tracker_enable" id="onsite_coupon_tracker_enable">
-                        <option value="yes" <?php selected(get_option('onsite_coupon_tracker_enable', 'yes'), 'yes') ?>>เปิดใช้งานระบบ</option>
-                        <option value="no" <?php selected(get_option('onsite_coupon_tracker_enable', 'yes'), 'no') ?>>ปิดใช้งานระบบ</option>
+                    <label for="hotel_coupon_tracker_enable">เปิดใช้งานระบบ Onsite Coupon: </label>
+                    <select name="hotel_coupon_tracker_enable" id="hotel_coupon_tracker_enable">
+                        <option value="yes" <?php selected(get_option('hotel_coupon_tracker_enable', 'yes'), 'yes') ?>>เปิดใช้งานระบบ</option>
+                        <option value="no" <?php selected(get_option('hotel_coupon_tracker_enable', 'yes'), 'no') ?>>ปิดใช้งานระบบ</option>
                     </select>
                     <br><br>
                     <label for="onsite_coupon_enable_individual_use">สามารถใช้ส่วนคูปองร่วมกับสิทธิพิเศษอื่น ๆ ได้: </label>
@@ -814,10 +886,10 @@ function onsite_coupon_tracker_page() {
                         <option value="no" <?php selected(get_option('onsite_coupon_enable_multiple_pick', 'no'), 'no') ?>>ไม่</option>
                     </select>
                     <br><br>
-                    <label for="onsite_coupon_tracker_only_login_user">ใช้งานได้เฉพาะลูกค้าที่เข้าสู่ระบบแล้วเท่านั้น: </label>
-                    <select name="onsite_coupon_tracker_only_login_user" id="onsite_coupon_tracker_only_login_user">
-                        <option value="yes" <?php selected(get_option('onsite_coupon_tracker_only_login_user', 'yes'), 'yes') ?>>เปิดใช้งานระบบ</option>
-                        <option value="no" <?php selected(get_option('onsite_coupon_tracker_only_login_user', 'yes'), 'no') ?>>ปิดใช้งานระบบ</option>
+                    <label for="hotel_coupon_tracker_only_login_user">ใช้งานได้เฉพาะลูกค้าที่เข้าสู่ระบบแล้วเท่านั้น: </label>
+                    <select name="hotel_coupon_tracker_only_login_user" id="hotel_coupon_tracker_only_login_user">
+                        <option value="yes" <?php selected(get_option('hotel_coupon_tracker_only_login_user', 'yes'), 'yes') ?>>เปิดใช้งานระบบ</option>
+                        <option value="no" <?php selected(get_option('hotel_coupon_tracker_only_login_user', 'yes'), 'no') ?>>ปิดใช้งานระบบ</option>
                     </select>
                     <br><br>
                     <label for="onsite_coupon_enable_coupon_book">เปิดใช้งาน Conpon Book: </label>
@@ -834,7 +906,7 @@ function onsite_coupon_tracker_page() {
             ?>
             <h1>➕ สร้างแคมเปญใหม่</h1>
             <div style="padding: 0px 25px 25px 25px;">
-                <form action="admin.php?page=onsite_coupon_tracker" method="POST">
+                <form action="admin.php?page=hotel_coupon_tracker" method="POST">
                     ชื่อแคมเปญ: <input type="text" name="campaign_name" id="" required style="width: 500px;"><br><br>
                     วันที่เริ่มแจกคูปอง: <input type="date" name="campaign_start_date" id="" required>
                     เวลา: <input type="time" name="campaign_start_time" id="" required>
@@ -847,17 +919,75 @@ function onsite_coupon_tracker_page() {
                         <option value="1">ใช้งาน</option>
                     </select>
                     <br><br>
+                    ห้องพักที่เข้าร่วมแคมเปญ: <input type="text" name="rooms" id="" style="width: 100%;">
+                    <div style="height: 400px; overflow: auto;">
+                        <?php
+                        $args = array(
+                            'status'  => 'publish',
+                            'limit'   => -1, // -1 pulls all items
+                            'orderby' => 'name',
+                            'order'   => 'ASC',
+                        );
+                        $all_products = wc_get_products($args);
+                        foreach ($all_products as $product) {
+                            if ($product->get_type() == 'variable') {
+                                $variations = $product->get_available_variations();
+                                
+                                foreach ($variations as $variation) {
+                                    $variation_id = $variation['variation_id'];
+        
+                                    $attribute_labels = [];
+                                    foreach ($variation['attributes'] as $key => $value) {
+                                        $attr_name = str_replace('attribute_', '', $key);
+                                        $attr_name = wc_attribute_label($attr_name); 
+                                        $attribute_labels[] = $attr_name . ': ' . ucfirst($value);
+                                    }
+                                    $attributes_text = implode(', ', $attribute_labels);
+                                    ?>
+                                    <p>
+                                        <input 
+                                            type="checkbox" 
+                                            name="room[<?php echo esc_attr($variation_id); ?>]" 
+                                            value="<?php echo esc_attr($variation_id); ?>" 
+                                            onchange="initProduct();"
+                                        />
+                                        <?php echo esc_html($product->get_title()) . ' (' . esc_html(urldecode($attributes_text)) . ')'; ?>
+                                    </p>
+                                    <?php
+                                }
+                            } else {
+                                $is_checked = false;
+                            ?>
+                                <p><input type="checkbox" name="room[<?=$product->get_id()?>]" value="<?=$product->get_id()?>" onchange="initProduct();" /><?php echo esc_html($product->get_title()); ?></p>
+                            <?php
+                            }
+                            ?>
+                        <?php
+                        }
+                        ?>
+                    </div>
+                    <script>
+                        function initProduct() {
+                            const checkedBoxes = document.querySelectorAll('input[type="checkbox"]:checked');
+                            let items = []
+                            checkedBoxes.forEach(item => {
+                                items.push(item.value)
+                            })
+                            document.getElementsByName('rooms')[0].value = items.join(",");
+                        }
+                    </script>
+                    <br><br>
                     <input type="submit" value="สร้างแคมเปญ" name="addCampaign" class="button button-primary">
                 </form>
             </div>
             <?php
             } else {
             ?>
-            <h1>🎉 ยินดีต้อนรับสู่ระบบ WordPress Onsite Coupon Manager !!!</h1>
+            <h1>🎉 ยินดีต้อนรับสู่ระบบ WordPress Hotel Coupon Manager !!!</h1>
             <div style="padding: 0px 25px 25px 25px;">
                 <h2>ระบบนี้คืออะไร ?</h2>
-                <p>ระบบ WordPress Onsite Coupon Manager คือระบบที่ออกแบบมาเพื่ออำนวยความสะดวกในการสร้างคูปองหน้าร้านสำหรับแคมเปญหรือกิจกรรมต่าง ๆ 
-                    ช่วยให้จัดการคูปองได้ง่ายมากขึ้นสำหรับทั้งหน้าร้าน ผู้ออกแบบแคมเปญ และผู้จัดการ โดยระบบสามารถสร้างแคมเปญใหม่และสร้างคูปองส่วนลดภายในแคมเปญนั้น ๆ ได้</p>
+                <p>ระบบ WordPress Hotel Coupon Manager คือระบบที่ออกแบบมาเพื่ออำนวยความสะดวกในการสร้างคูปองหน้าร้านสำหรับแคมเปญหรือกิจกรรมต่าง ๆ 
+                    ช่วยให้จัดการคูปองได้ง่ายมากขึ้นสำหรับทั้งหน้าร้าน ผู้ออกแบบแคมเปญ และผู้จัดการ โดยระบบสามารถสร้างแคมเปญใหม่ที่ผูกไว้กับห้องพักต่าง ๆ และสร้างคูปองส่วนลดภายในแคมเปญนั้น ๆ ซึ่งมีกลุ่มของห้องพักอยู่ได้</p>
                 <h2>ระบบนี้ทำงานอย่างไร ?</h2>
                 <p>คูปองทั้งหมดในแคมเปญจะแสดงก็ต่อเมื่อเวลาปัจจุบันอยู่ในช่วงระยะเวลา "แจกคูปอง" ตามที่ได้กำหนดไว้ในแคมเปญ เมื่อลูกค้าเก็บคูปอง คูปองจะถูกนำไปจัดเก็บและสามารถเข้าดูได้จากเมนู "บัญชีของฉัน" หรือที่
                     URL: <a href="/my-account" target="_blank">/my-account/</a>
@@ -885,15 +1015,15 @@ function onsite_coupon_tracker_page() {
     <?php
 }
 
-add_action('admin_init', 'onsite_coupon_tracker_settings_init');
+add_action('admin_init', 'hotel_coupon_tracker_settings_init');
 
-function onsite_coupon_tracker_settings_init()
+function hotel_coupon_tracker_settings_init()
 {
-    register_setting('onsite_coupon_tracker_settings_group', 'onsite_coupon_tracker_enable');
-    register_setting('onsite_coupon_tracker_settings_group', 'onsite_coupon_enable_multiple_pick');
-    register_setting('onsite_coupon_tracker_settings_group', 'onsite_coupon_enable_individual_use');
-    register_setting('onsite_coupon_tracker_settings_group', 'onsite_coupon_tracker_only_login_user');
-    register_setting('onsite_coupon_tracker_settings_group', 'onsite_coupon_enable_coupon_book');
+    register_setting('hotel_coupon_tracker_settings_group', 'hotel_coupon_tracker_enable');
+    register_setting('hotel_coupon_tracker_settings_group', 'onsite_coupon_enable_multiple_pick');
+    register_setting('hotel_coupon_tracker_settings_group', 'onsite_coupon_enable_individual_use');
+    register_setting('hotel_coupon_tracker_settings_group', 'hotel_coupon_tracker_only_login_user');
+    register_setting('hotel_coupon_tracker_settings_group', 'onsite_coupon_enable_coupon_book');
 }
 
 add_action('init', function() {
@@ -915,7 +1045,7 @@ add_action('template_redirect', function() {
     if ($discount && $condition && $campaign_id) {
         global $wpdb;
 
-        if(get_option("onsite_coupon_tracker_only_login_user") == "yes") {
+        if(get_option("hotel_coupon_tracker_only_login_user") == "yes") {
             if (!is_user_logged_in()) {
                 wp_redirect(wp_login_url(home_url('/e-voucher/'))); 
                 exit;
@@ -983,11 +1113,11 @@ function evoucher_clean_fbclid_redirect() {
 }
 
 add_shortcode('evoucher_page', function() {
-    if(get_option('onsite_coupon_tracker_enable', 'yes') == "no") return;
+    if(get_option('hotel_coupon_tracker_enable', 'yes') == "no") return;
 
     global $wpdb;
 
-    if(get_option("onsite_coupon_tracker_only_login_user") == "yes") {
+    if(get_option("hotel_coupon_tracker_only_login_user") == "yes") {
         if (!is_user_logged_in()) {
             return '
             <div style="text-align:center; padding: 50px; background:#fff; border-radius:10px;">
@@ -1004,7 +1134,7 @@ add_shortcode('evoucher_page', function() {
 
     $current_time = current_time('mysql');
     $campaigns = $wpdb->get_results($wpdb->prepare(
-        "SELECT id, name, start_date, end_date, enable_fake_coupons_code 
+        "SELECT id, name, start_date, end_date, enable_fake_coupons_code, rooms 
         FROM {$wpdb->prefix}onsite_campaign 
         WHERE start_date <= %s 
         AND end_date >= %s 
@@ -1012,6 +1142,11 @@ add_shortcode('evoucher_page', function() {
         $current_time, 
         $current_time
     ));
+
+    function getRoomName($product_id) {
+        $product = wc_get_product( $product_id );
+        return $product->get_name();
+    }
 
     ob_start();
     ?>
@@ -1029,7 +1164,7 @@ add_shortcode('evoucher_page', function() {
         <?php endif; ?>
 
         <?php foreach($campaigns as $campaign) : ?>
-            <div style="padding: 20px; margin-top: 30px; border: 1px solid #ddd; border-radius: 20px;">
+            <div style="margin-top: 30px;">
                 <h3 style="margin-top:0;">🎫 <?=$campaign->name;?></h3>
                 <div class="coupon-container">
                     <?php
@@ -1050,22 +1185,33 @@ add_shortcode('evoucher_page', function() {
                                     <span><?=$coupon->discount?></span>
                                     <div style="flex:1;">
                                         <p>
-                                            <strong>ลด <?=$coupon->discount?></strong><br>
+                                            <strong><?=$coupon->discount?> Discount</strong><br>
                                             <small><?=$coupon->coupon_condition?></small>
+                                            <br>
+                                            <?php
+                                            $rooms_condition = "<strong>* For All Rooms</strong>";
+                                            if($campaign->rooms != "") {
+                                                $rooms_condition = '';
+                                                foreach(explode(',',$campaign->rooms) as $room) { 
+                                                    $rooms_condition .= "<strong>- ".getRoomName($room)."</strong><br>";
+                                                }
+                                            }
+                                            ?>
+                                            <small><?=$rooms_condition?></small>
                                         </p>
                                         <?php
-                                        if(get_option("onsite_coupon_tracker_only_login_user") == "yes") {
+                                        if(get_option("hotel_coupon_tracker_only_login_user") == "yes") {
                                         ?>
-                                        <button class="btn-pick" <?php if($already_got_coupon > 0) { echo "disabled"; } ?> onclick="pickBtn('/e-voucher/pick/<?=$coupon->discount?>/<?=$coupon->coupon_condition?>/<?=$campaign->id;?>')">เก็บคูปองนี้</button>
+                                        <button class="btn-pick" <?php if($already_got_coupon > 0) { echo "disabled"; } ?> onclick="pickBtn('/e-voucher/pick/<?=$coupon->discount?>/<?=$coupon->coupon_condition?>/<?=$campaign->id;?>', '<?=$rooms_condition?>')">Pick</button>
                                         <?php
                                         } else {
                                             if($campaign->enable_fake_coupons_code == 1) {
                                         ?>
-                                        <button class="btn-pick" onclick="showCoupon('<?=$coupon->display_code;?>','<?=$coupon->code;?>','<?=$coupon->discount?>', '<?=$coupon->coupon_condition?>')">เก็บเลย!</button>
+                                            <button class="btn-pick" onclick="showCoupon('<?=$coupon->display_code;?>','<?=$coupon->code;?>','<?=$coupon->discount?>', '<?=$coupon->coupon_condition?>', '<?=$rooms_condition?>')">Pick</button>
                                         <?php
                                             } else {
                                         ?>
-                                        <button class="btn-pick" onclick="showCoupon('<?=$coupon->code;?>', '<?=$coupon->code;?>','<?=$coupon->discount?>', '<?=$coupon->coupon_condition?>')">ใช้งานเลย!</button>
+                                            <button class="btn-pick" onclick="showCoupon('<?=$coupon->code;?>', '<?=$coupon->code;?>','<?=$coupon->discount?>', '<?=$coupon->coupon_condition?>', '<?=$rooms_condition?>')">Use now!</button>
                                         <?php
                                             }
                                         }
@@ -1084,9 +1230,9 @@ add_shortcode('evoucher_page', function() {
         <!-- Coupon Box สำหรับโชว์โค้ด -->
         <div id="couponBox">
             <div style="background: #fff; border-radius: 20px; padding: 40px; width: 80%;">
-                <!-- <img src="" class="couponArtWork" alt="Onsite Coupon Art Work"> -->
-                <p style="font-size: 18px; font-weight: bold;">ลด <span id="couponDiscount"></span> <span id="couponCondition"></span></p>
-                <p style="font-size: 16px; margin-bobttom: 20px;">ยื่นรหัสนี้ให้พนักงานที่เคาน์เตอร์</p><span style="
+                <p id="couponDiscount" style="font-size: 18px; font-weight: bold;"></p>
+                <p id="couponCondition"></p>
+                <p style="font-size: 16px; margin-bobttom: 20px;">Show this code at the counter.</p><span style="
                 width: 100%;
                 color: #222;
                 font-size: 48px;
@@ -1097,8 +1243,8 @@ add_shortcode('evoucher_page', function() {
                 display: block;
                 margin-bobttom: 20px;" id="couponBoxCode"></span>
                 <br>
-                <button class="button close-coupon-btn" onclick="hideCoupon()">ปิดหน้าจอนี้</button>
-                <button class="button go-to-cart-btn" id="toWebCart">ใช้ซื้อสินค้าหน้าเว็บ</button>
+                <button class="button close-coupon-btn" onclick="hideCoupon()">Close</button>
+                <button class="button go-to-cart-btn" id="toWebCart">Convert To Online Coupon</button>
             </div>
         </div>
         <script>
@@ -1110,11 +1256,11 @@ add_shortcode('evoucher_page', function() {
                 window.location.href = url;
             }
 
-            function showCoupon(display_code, code, discount, coupon_condition) {
+            function showCoupon(display_code, code, discount, coupon_condition, rooms) {
                 document.getElementById('couponBox').style.display = "flex";
                 document.getElementById('couponBoxCode').innerText = display_code;
-                document.getElementById('couponDiscount').innerText = discount;
-                document.getElementById('couponCondition').innerText = coupon_condition;
+                document.getElementById('couponDiscount').innerText = discount + " Off "+coupon_condition;
+                document.getElementById('couponCondition').innerHTML = "<small>"+rooms+"</small>";
                 document.getElementById('toWebCart').setAttribute('onclick', "window.location.href='/cart/?use_from_coupon_book="+code+"'");
             }
             function hideCoupon() {
@@ -1130,7 +1276,7 @@ add_shortcode('evoucher_page', function() {
 add_action('woocommerce_before_my_account', 'my_onsite_coupons_table');
 
 function my_onsite_coupons_table() {
-    if(get_option('onsite_coupon_tracker_enable', 'yes') == "no") return;
+    if(get_option('hotel_coupon_tracker_enable', 'yes') == "no") return;
 
 
     global $wpdb;
@@ -1165,9 +1311,9 @@ function my_onsite_coupons_table() {
 </style>
 <div id="couponBox">
     <div style="background: #fff; border-radius: 20px; padding: 40px; width: 80%;">
-        <!-- <img src="" class="couponArtWork" alt="Onsite Coupon Art Work"> -->
-        <p style="font-size: 18px; font-weight: bold;">ลด <span id="couponDiscount"></span> <span id="couponCondition"></span></p>
-        <p style="font-size: 16px; margin-bobttom: 20px;">ยื่นรหัสนี้ให้พนักงานที่เคาน์เตอร์</p><span style="
+        <p id="couponDiscount" style="font-size: 18px; font-weight: bold;"></p>
+        <p id="couponCondition"></p>
+        <p style="font-size: 16px; margin-bobttom: 20px;">Show this code at the counter.</p><span style="
         width: 100%;
         color: #222;
         font-size: 48px;
@@ -1177,7 +1323,7 @@ function my_onsite_coupons_table() {
         background: #EFEFEF;
         display: block;
         margin-bobttom: 20px;" id="couponBoxCode"></span>
-        <button class="button" class="close-coupon-btn" onclick="hideCoupon()">ปิดหน้าจอนี้</button>
+        <button class="button" class="close-coupon-btn" onclick="hideCoupon()">Close</button>
     </div>
 </div>
 <div class="accordion" id="onsiteCoupon">
@@ -1274,11 +1420,11 @@ function my_onsite_coupons_table() {
   </div>
 </div>
 <script>
-    function showCoupon(code, discount, coupon_condition) {
+    function showCoupon(code, discount, coupon_condition, rooms) {
         document.getElementById('couponBox').style.display = "flex";
         document.getElementById('couponBoxCode').innerText = code;
-        document.getElementById('couponDiscount').innerText = discount;
-        document.getElementById('couponCondition').innerText = coupon_condition;
+        document.getElementById('couponDiscount').innerText = discount + " Off "+coupon_condition;
+        document.getElementById('couponCondition').innerHTML = "<small>"+rooms+"</small>";
     }
     function hideCoupon() {
         document.getElementById('couponBox').style.display = "none";
@@ -1351,6 +1497,22 @@ function createWoocommerceCouponFromOnsiteCoupon($coupon_code, $discount_amount,
     ));
     if ($onsite_status == 1) return;
 
+    $campaign_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT campaign_id FROM {$wpdb->prefix}onsite_coupon WHERE code = %s",
+        $coupon_code
+    ));
+
+    $product_ids = $wpdb->get_var($wpdb->prepare(
+        "SELECT rooms FROM {$wpdb->prefix}onsite_campaign WHERE id = %d",
+        $campaign_id
+    ));
+
+    if(empty($product_ids)) {
+        $product_ids = array();
+    } else {
+        $product_ids = explode(',', $product_ids);
+    }
+
     // 2. หา ID ของคูปองที่มีอยู่เดิม (รวมทุกสถานะ ทั้ง publish และ draft)
     $existing_id = $wpdb->get_var($wpdb->prepare(
         "SELECT ID FROM $wpdb->posts WHERE post_title = %s AND post_type = 'shop_coupon' LIMIT 1",
@@ -1375,6 +1537,12 @@ function createWoocommerceCouponFromOnsiteCoupon($coupon_code, $discount_amount,
         
         $coupon->set_usage_limit(1);
         $coupon->set_usage_limit_per_user(1);
+
+        if ( ! empty( $product_ids ) && is_array( $product_ids ) ) {
+            $coupon->set_product_ids( $product_ids );
+        } else {
+            $coupon->set_product_ids( array() );
+        }
 
         if(get_option('onsite_coupon_enable_individual_use', 'no') == "yes") {
             $individual_use = true;
@@ -1488,53 +1656,41 @@ function mark_onsite_coupon_as_used($order_id) {
         }
     }
 } 
-
-add_action('woocommerce_after_cart_table', 'wp_cart_coupon_book');
-function wp_cart_coupon_book() {
-    //Return if required login user.
-    if(get_option("onsite_coupon_tracker_only_login_user") == "yes") {
+/**
+ * ส่วนที่ 1: [จัดการระบบหลังบ้าน] ดักจับลิงก์ สร้างคูปอง และล็อคสินค้าเฉพาะห้อง
+ * (ย้ายมาทำที่ template_redirect เพื่อไม่ให้ระบบเกิดข้อผิดพลาดหน้าจอขาวตอนสั่งรีไดเรกต์)
+ */
+add_action('template_redirect', 'wp_cart_coupon_book_backend_logic');
+function wp_cart_coupon_book_backend_logic() {
+    // 1. ทำงานเฉพาะที่หน้าตะกร้าสินค้า (Cart) เท่านั้น
+    if ( ! is_cart() ) return;
+    
+    // 2. เช็คเงื่อนไขบังคับล็อกอิน
+    if ( get_option("hotel_coupon_tracker_only_login_user") == "yes" && ! is_user_logged_in() ) {
         return;
     }
 
     global $wpdb;
-    $current_time = current_time('mysql');
 
-    if(get_option('onsite_coupon_enable_coupon_book') == "yes") {
-        $campaigns = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, name, start_date, end_date 
-            FROM {$wpdb->prefix}onsite_campaign 
-            WHERE start_date <= %s 
-            AND end_date >= %s 
-            ORDER BY id DESC",
-            $current_time, 
-            $current_time
-        ));
-    
-        ob_start();
-    }
-
-    if(isset($_GET['use_from_coupon_book']) && !empty($_GET['use_from_coupon_book'])) {
+    // ─── จังหวะที่ 1: เมื่อลูกค้ากดปุ่ม "ใช้งานเลย!" ───
+    if ( isset($_GET['use_from_coupon_book']) && ! empty($_GET['use_from_coupon_book']) ) {
         if ( ! class_exists( 'WC_Coupon' ) ) return;
-        global $wpdb;
+        
         $coupon_code = sanitize_text_field($_GET['use_from_coupon_book']);
 
-        $onsite_status = $wpdb->get_var($wpdb->prepare(
-            "SELECT status FROM {$wpdb->prefix}onsite_coupon WHERE code = %s",
+        // ดึงข้อมูลคูปอง และดึง "ห้อง (rooms)" จากตารางแคมเปญมาพร้อมกันเลย (LEFT JOIN)
+        $coupon_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT c.status, c.discount_amount, c.minspend, camp.rooms 
+             FROM {$wpdb->prefix}onsite_coupon c
+             LEFT JOIN {$wpdb->prefix}onsite_campaign camp ON c.campaign_id = camp.id
+             WHERE c.code = %s",
             $coupon_code
         ));
 
-        $discount_amount = $wpdb->get_var($wpdb->prepare(
-            "SELECT discount_amount FROM {$wpdb->prefix}onsite_coupon WHERE code = %s",
-            $coupon_code
-        ));
+        // ถ้าไม่พบข้อมูล หรือคูปองถูกปิดใช้งานอยู่ ให้ยกเลิกการทำงาน
+        if ( ! $coupon_data || $coupon_data->status == 1 ) return;
 
-        $minimum_amount = $wpdb->get_var($wpdb->prepare(
-            "SELECT minspend FROM {$wpdb->prefix}onsite_coupon WHERE code = %s",
-            $coupon_code
-        ));
-
-        if ($onsite_status == 1) return;
-
+        // เช็คว่าคูปองนี้เคยมีอยู่ในระบบ WooCommerce หรือยัง
         $existing_id = $wpdb->get_var($wpdb->prepare(
             "SELECT ID FROM $wpdb->posts WHERE post_title = %s AND post_type = 'shop_coupon' LIMIT 1",
             $coupon_code
@@ -1544,62 +1700,94 @@ function wp_cart_coupon_book() {
             $coupon = $existing_id ? new WC_Coupon($existing_id) : new WC_Coupon();
             
             $coupon->set_code($coupon_code);
-            $coupon->set_status('publish'); // บังคับให้เป็น Publish เสมอ
+            $coupon->set_status('publish'); 
             $coupon->set_discount_type('fixed_cart');
-            $coupon->set_amount((float)$discount_amount);
+            $coupon->set_amount((float)$coupon_data->discount_amount);
             
-            // ล้างประวัติการใช้งาน (เพื่อป้องกันบั๊กใช้ซ้ำไม่ได้)
             $coupon->set_usage_count(0);
             $coupon->set_used_by(array());
             
-            $min = (float)$minimum_amount > 0 ? (float)$minimum_amount : 0;
+            $min = (float)$coupon_data->minspend > 0 ? (float)$coupon_data->minspend : 0;
             $coupon->set_minimum_amount($min);
             
             $coupon->set_usage_limit(1);
             $coupon->set_usage_limit_per_user(1);
 
-            if(get_option('onsite_coupon_enable_individual_use', 'no') == "yes") {
-                $individual_use = true;
+            if ( ! empty( $coupon_data->rooms ) ) {
+                $product_ids = array_filter( array_map( 'intval', explode( ',', $coupon_data->rooms ) ) );
+                $coupon->set_product_ids( $product_ids ); // สั่งล็อคเฉพาะห้องเหล่านี้
             } else {
-                $individual_use = false;
+                $coupon->set_product_ids( array() );     // ใช้ได้ทุกห้อง (ไม่มีเงื่อนไข)
             }
 
+            $individual_use = (get_option('onsite_coupon_enable_individual_use', 'no') == "yes");
             $coupon->set_individual_use($individual_use);
             $coupon->set_date_expires(date('Y-m-d', strtotime('+7 days')));
             
             $coupon->save();
 
+            // ล้าง Cache ระบบคูปองเพื่อความแม่นยำ
             delete_transient('wc_coupon_id_from_code_' . $coupon_code);
             wp_cache_delete('coupon-id-' . $coupon_code, 'coupons');
             $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}wc_order_coupon_lookup WHERE coupon_code = %s", $coupon_code));
 
             if ( WC()->cart ) {
-                // ลบคูปองแบบระบุชื่อ
                 WC()->cart->remove_coupon( $coupon_code );
                 WC()->cart->get_cart_from_session();
                 WC()->cart->calculate_totals();
-                // บังคับ Save Session ทันที
                 WC()->cart->set_session();
-                // ป้องกัน Cache ระดับ Object
                 wc_delete_shop_order_transients();
             }
-            wp_redirect("/cart/?apply_coupon=$coupon_code");
+
+            wp_redirect(wc_get_cart_url() . "?apply_coupon=$coupon_code");
+            exit;
+
         } catch (Exception $e) {
             error_log("Error in Smart Coupon Sync: " . $e->getMessage());
         }  
     }
     
-    if(isset($_GET['apply_coupon']) && !empty($_GET['apply_coupon'])) {
-        if ( count( WC()->cart->get_applied_coupons() ) == 0 ) {
+    // ─── จันทวะที่ 2: หลังจากสร้างเสร็จ ระบบจะอ่านลิงก์นี้เพื่อยัดคูปองเข้าตะกร้า ───
+    if ( isset($_GET['apply_coupon']) && ! empty($_GET['apply_coupon']) ) {
+        if ( WC()->cart && count( WC()->cart->get_applied_coupons() ) == 0 ) {
             $coupon_code = sanitize_text_field($_GET['apply_coupon']);
             if ( ! WC()->cart->has_discount( $coupon_code ) ) {
                 WC()->cart->add_discount( $coupon_code );
+                
+                // ล้างค่า URL แปลกๆ ทิ้ง เพื่อให้หน้าตะกร้ากลับมาคลีนสวยงาม
+                wp_redirect(wc_get_cart_url());
+                exit;
             }
         }
     }
+}
 
-    if(get_option('onsite_coupon_enable_coupon_book') == "yes") {
+add_action('woocommerce_after_cart', 'wp_cart_coupon_book_frontend_render');
+function wp_cart_coupon_book_frontend_render() {
+    // เช็คเงื่อนไขบังคับล็อกอิน
+    if ( get_option("hotel_coupon_tracker_only_login_user") == "yes" && ! is_user_logged_in() ) {
+        return;
+    }
 
+    if ( get_option('onsite_coupon_enable_coupon_book') != "yes" ) return;
+
+    global $wpdb;
+    $current_time = current_time('mysql');
+
+    // ดึงแคมเปญที่อยู่ในช่วงเวลาปัจจุบันมาแสดงผล
+    $campaigns = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, name, start_date, end_date 
+         FROM {$wpdb->prefix}onsite_campaign 
+         WHERE start_date <= %s 
+         AND end_date >= %s 
+         ORDER BY id DESC",
+        $current_time, 
+        $current_time
+    ));
+
+    if ( ! $campaigns ) return;
+
+    // เริ่มต้นลูปแสดงผล HTML ดีไซน์เดิมของคุณ
     foreach($campaigns as $campaign) : ?>
         <div style="padding: 20px; margin-top: 30px; border: 1px solid #ddd;">
             <h3 style="margin-top:0;">🎫 <?=$campaign->name;?></h3>
@@ -1635,7 +1823,5 @@ function wp_cart_coupon_book() {
                 ?>
             </div>
         </div>
-    <?php endforeach; ?>
-<?php
-    }
+    <?php endforeach;
 }
