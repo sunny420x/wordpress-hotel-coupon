@@ -970,6 +970,18 @@ add_action('template_redirect', function() {
     }
 });
 
+//Remove buggy fbclid tracker.
+add_action('template_redirect', 'evoucher_clean_fbclid_redirect');
+function evoucher_clean_fbclid_redirect() {
+    if (isset($_GET['fbclid'])) {
+        $clean_url = remove_query_arg('fbclid', $_SERVER['REQUEST_URI']);
+        $absolute_url = home_url($clean_url);
+        
+        wp_safe_redirect($absolute_url, 301);
+        exit;
+    }
+}
+
 add_shortcode('evoucher_page', function() {
     if(get_option('onsite_coupon_tracker_enable', 'yes') == "no") return;
 
